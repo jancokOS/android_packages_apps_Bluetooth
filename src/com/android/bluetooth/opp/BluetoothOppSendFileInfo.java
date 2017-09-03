@@ -42,6 +42,8 @@ import android.provider.OpenableColumns;
 import android.util.EventLog;
 import android.util.Log;
 
+import com.android.bluetooth.R;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -235,6 +237,10 @@ public class BluetoothOppSendFileInfo {
         if (length == 0) {
             Log.e(TAG, "Could not determine size of file");
             return SEND_FILE_INFO_ERROR;
+        } else if (length > 0xffffffffL) {
+            String msg = context.getString(R.string.bt_opp_file_limit);
+            Log.e(TAG, msg);
+            throw new IllegalArgumentException(msg);
         }
 
         return new BluetoothOppSendFileInfo(fileName, contentType, length, is, 0);

@@ -21,6 +21,7 @@
 package com.android.bluetooth.btservice;
 
 import android.app.AlarmManager;
+import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
 import android.bluetooth.BluetoothAdapter;
@@ -125,6 +126,7 @@ public class AdapterService extends Service {
     public static final String BLUETOOTH_ADMIN_PERM =
         android.Manifest.permission.BLUETOOTH_ADMIN;
 
+    public static int oppNotificationId = 0;
     static final ParcelUuid[] A2DP_SOURCE_SINK_UUIDS = {
         BluetoothUuid.AudioSource,
         BluetoothUuid.AudioSink
@@ -540,6 +542,7 @@ public class AdapterService extends Service {
         mProfileObserver = new ProfileObserver(getApplicationContext(), this, new Handler());
         mProfileObserver.start();
         mVendor.init();
+        mBondStateMachine = BondStateMachine.make(mPowerManager, this, mAdapterProperties, mRemoteDevices);
 
         setAdapterService(this);
     }
@@ -587,7 +590,6 @@ public class AdapterService extends Service {
         mAdapterProperties.init(mRemoteDevices);
 
         debugLog("BleOnProcessStart() - Make Bond State Machine");
-        mBondStateMachine = BondStateMachine.make(mPowerManager, this, mAdapterProperties, mRemoteDevices);
 
         mJniCallbacks.init(mBondStateMachine,mRemoteDevices);
 
@@ -650,6 +652,15 @@ public class AdapterService extends Service {
                     + serviceName + " with result: " + res);
             }
         return;
+    }
+
+    void cleanOppNotifciations() {
+        Log.d(TAG, " cleanOppNotifciations ID:" + oppNotificationId);
+        if (oppNotificationId != 0) {
+            NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+            nm.cancel(oppNotificationId);
+            oppNotificationId = 0;
+        }
     }
 
     boolean stopGattProfileService() {
@@ -766,6 +777,8 @@ public class AdapterService extends Service {
     private static final int CONNECT_OTHER_PROFILES_TIMEOUT= 6000;
     private static final int CONNECT_OTHER_PROFILES_TIMEOUT_DELAYED = 10000;
     private static final int CONNECT_OTHER_CLIENT_PROFILES_TIMEOUT= 2000;
+    private static final int MESSAGE_AUTO_CONNECT_PROFILES = 50;
+    private static final int AUTO_CONNECT_PROFILES_TIMEOUT= 500;
 
     private final Handler mHandler = new Handler() {
         @Override
@@ -801,6 +814,11 @@ public class AdapterService extends Service {
                     debugLog( "handleMessage() - MESSAGE_CONNECT_OTHER_CLIENT_PROFILES ");
                     processConnectOtherClientProfiles((BluetoothDevice) msg.obj, msg.arg1);
                     break;
+                case MESSAGE_AUTO_CONNECT_PROFILES: {
+                    if (DBG) debugLog( "MESSAGE_AUTO_CONNECT_PROFILES");
+                    autoConnectProfilesDelayed();
+                    break;
+                }
             }
         }
     };
@@ -1043,7 +1061,8 @@ public class AdapterService extends Service {
             //do not allow setmode when multicast is active
             A2dpService a2dpService = A2dpService.getA2dpService();
             if (a2dpService != null &&
-                    a2dpService.isMulticastOngoing(null)) {
+                a2dpService.isMulticastFeatureEnabled() &&
+                a2dpService.isMulticastOngoing(null)) {
                 Log.i(TAG,"A2dp Multicast is Ongoing, ignore setmode " + mode);
                 mScanmode = mode;
                 return false;
@@ -1645,7 +1664,8 @@ public class AdapterService extends Service {
         //do not allow new connections with active multicast
         A2dpService a2dpService = A2dpService.getA2dpService();
         if (a2dpService != null &&
-                a2dpService.isMulticastOngoing(null)) {
+            a2dpService.isMulticastFeatureEnabled() &&
+            a2dpService.isMulticastOngoing(null)) {
             Log.i(TAG,"A2dp Multicast is Ongoing, ignore discovery");
             return false;
         }
@@ -1708,7 +1728,8 @@ public class AdapterService extends Service {
         // Multicast: Do not allow bonding while multcast
         A2dpService a2dpService = A2dpService.getA2dpService();
         if (a2dpService != null &&
-                a2dpService.isMulticastOngoing(null)) {
+            a2dpService.isMulticastFeatureEnabled() &&
+            a2dpService.isMulticastOngoing(null)) {
             Log.i(TAG,"A2dp Multicast is ongoing, ignore bonding");
             return false;
         }
@@ -1735,7 +1756,18 @@ public class AdapterService extends Service {
           return mQuietmode;
      }
 
-     public void autoConnect(){
+    // Delaying Auto Connect to make sure that all clients
+    // are up and running, specially BluetoothHeadset.
+    public void autoConnect() {
+        debugLog( "delay auto connect by 500 ms");
+        if ((mHandler.hasMessages(MESSAGE_AUTO_CONNECT_PROFILES) == false) &&
+            (isQuietModeEnabled()== false)) {
+            Message m = mHandler.obtainMessage(MESSAGE_AUTO_CONNECT_PROFILES);
+            mHandler.sendMessageDelayed(m,AUTO_CONNECT_PROFILES_TIMEOUT);
+        }
+    }
+
+    private void autoConnectProfilesDelayed(){
         if (getState() != BluetoothAdapter.STATE_ON){
              errorLog("autoConnect() - BT is not ON. Exiting autoConnect");
              return;
@@ -2712,6 +2744,37 @@ public class AdapterService extends Service {
 
     private double getOperatingVolt() {
         return getResources().getInteger(R.integer.config_bluetooth_operating_voltage_mv) / 1000.0;
+    }
+
+    private String getStateString() {
+        int state = getState();
+        switch (state) {
+            case BluetoothAdapter.STATE_OFF:
+                return "STATE_OFF";
+            case BluetoothAdapter.STATE_TURNING_ON:
+                return "STATE_TURNING_ON";
+            case BluetoothAdapter.STATE_ON:
+                return "STATE_ON";
+            case BluetoothAdapter.STATE_TURNING_OFF:
+                return "STATE_TURNING_OFF";
+            case BluetoothAdapter.STATE_BLE_TURNING_ON:
+                return "STATE_BLE_TURNING_ON";
+            case BluetoothAdapter.STATE_BLE_ON:
+                return "STATE_BLE_ON";
+            case BluetoothAdapter.STATE_BLE_TURNING_OFF:
+                return "STATE_BLE_TURNING_OFF";
+            default:
+                return "UNKNOWN STATE: " + state;
+        }
+    }
+
+    public void captureVndLogs() {
+        mVendor.captureVndLogs();
+    }
+
+    public void setSnooplogState(boolean status) {
+        Settings.Secure.putInt(getContentResolver(),
+                Settings.Secure.BLUETOOTH_HCI_LOG, status ? 1 : 0);
     }
 
     @Override

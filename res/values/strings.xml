@@ -245,4 +245,6 @@
     <string name="bluetooth_map_settings_no_account_slots_left">Cannot select account. 0 slots left</string>
     <string name="bluetooth_connected">Bluetooth audio connected</string>
     <string name="bluetooth_disconnected">Bluetooth audio disconnected"</string>
+    <string name="upload_fail_waiting">Ongoing send file preparation, automatic retransmission later</string>
+    <string name="bt_opp_file_limit">Files bigger than 4GB can\'t be transferred</string>
 </resources>

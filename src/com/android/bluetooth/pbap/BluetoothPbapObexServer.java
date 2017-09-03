@@ -43,6 +43,7 @@ import android.provider.CallLog;
 import android.text.TextUtils;
 import android.util.Log;
 import android.os.SystemProperties;
+import android.os.UserManager;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -50,6 +51,7 @@ import java.text.CharacterIterator;
 import java.text.StringCharacterIterator;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.nio.ByteBuffer;
 
 import javax.obex.ServerRequestHandler;
@@ -389,6 +391,11 @@ public class BluetoothPbapObexServer extends ServerRequestHandler {
 
         if (type == null) {
             return ResponseCodes.OBEX_HTTP_NOT_ACCEPTABLE;
+        }
+
+        if (!UserManager.get(mContext).isUserUnlocked()) {
+            Log.e(TAG, "Storage locked, " + type + " failed");
+            return ResponseCodes.OBEX_HTTP_UNAVAILABLE;
         }
         // Accroding to specification,the name header could be omitted such as
         // sony erriccsonHBH-DS980
@@ -868,6 +875,8 @@ public class BluetoothPbapObexServer extends ServerRequestHandler {
             } else {
                   names = mVcardManager.getContactNamesByNumber(searchValue);
             }
+            if (mOrderBy == ORDER_BY_ALPHABETICAL)
+                Collections.sort(names);
             for (int i = 0; i < names.size(); i++) {
                 String handle = "-1";
                 compareValue = names.get(i).trim();
@@ -1251,7 +1260,7 @@ public class BluetoothPbapObexServer extends ServerRequestHandler {
             Log.w(TAG, "wrong path!");
             return ResponseCodes.OBEX_HTTP_NOT_ACCEPTABLE;
         } else if (appParamValue.needTag == ContentType.PHONEBOOK) {
-            if (intIndex < 0 || intIndex >= size) {
+            if (intIndex < 0 || !mVcardManager.checkContactsVcardId(intIndex)) {
                 Log.w(TAG, "The requested vcard is not acceptable! name= " + name);
                 return ResponseCodes.OBEX_HTTP_NOT_FOUND;
             } else if (intIndex == 0) {

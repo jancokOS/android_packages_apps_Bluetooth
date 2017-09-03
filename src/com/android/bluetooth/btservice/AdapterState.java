@@ -465,6 +465,7 @@ final class AdapterState extends StateMachine {
 
                 case ENABLE_TIMEOUT:
                     errorLog("Error enabling Bluetooth (enable timeout)");
+                    mVendor.captureVndLogs();
                     mVendor.ssrCleanup(false);
                     mPendingCommandState.setBleTurningOn(false);
                     adapterService.stopGattProfileService();
@@ -478,8 +479,9 @@ final class AdapterState extends StateMachine {
                     errorLog("Error cleaningup Bluetooth profiles (cleanup timeout)");
                     mVendor.ssrCleanup(false);
                     mPendingCommandState.setTurningOff(false);
-                    transitionTo(mBleOnState);
-                    notifyAdapterStateChange(BluetoothAdapter.STATE_BLE_ON);
+                    notifyAdapterStateChange(BluetoothAdapter.STATE_OFF);
+                    adapterService.disableProfileServices();
+                    transitionTo(mOffState);
                     errorLog("BREDR_CLEANUP_TIMEOUT:Killing the process to force a restart as part cleanup");
                     android.os.Process.killProcess(android.os.Process.myPid());
                     break;
@@ -488,7 +490,8 @@ final class AdapterState extends StateMachine {
                     errorLog("Error stopping Bluetooth profiles (stop timeout)");
                     mVendor.ssrCleanup(false);
                     mPendingCommandState.setTurningOff(false);
-                    notifyAdapterStateChange(BluetoothAdapter.STATE_BLE_ON);
+                    notifyAdapterStateChange(BluetoothAdapter.STATE_OFF);
+                    adapterService.cleanOppNotifciations();
                     adapterService.disableProfileServices();
                     transitionTo(mOffState);
                     errorLog("BREDR_STOP_TIMEOUT:Killing the process to force a restart as part cleanup");
@@ -508,6 +511,7 @@ final class AdapterState extends StateMachine {
                         mPendingCommandState.setTurningOn(false);
                         adapterService.stopProfileServices();
                     }
+                    mVendor.captureVndLogs();
                     adapterService.stopGattProfileService();
                     mPendingCommandState.setTurningOff(false);
                     mVendor.ssrCleanup(true);

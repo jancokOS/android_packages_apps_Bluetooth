@@ -53,6 +53,7 @@ import android.util.Log;
 import android.provider.Settings;
 
 import android.util.Patterns;
+import android.widget.Toast;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.Locale;
@@ -116,12 +117,7 @@ public class BluetoothOppLauncherActivity extends Activity {
                     // session to DB.
                     Thread t = new Thread(new Runnable() {
                         public void run() {
-                            BluetoothOppManager.getInstance(BluetoothOppLauncherActivity.this)
-                                .saveSendingFileInfo(type,stream.toString(),
-                                    false /* isHandover */, true /* fromExternal */);
-                            //Done getting file info..Launch device picker and finish this activity
-                            launchDevicePicker();
-                            finish();
+                            sendFileInfo(type, stream.toString(), false);
                         }
                     });
                     t.start();
@@ -133,13 +129,7 @@ public class BluetoothOppLauncherActivity extends Activity {
                     if (fileUri != null) {
                         Thread t = new Thread(new Runnable() {
                             public void run() {
-                                BluetoothOppManager.getInstance(BluetoothOppLauncherActivity.this)
-                                    .saveSendingFileInfo(type,fileUri.toString(),
-                                        false /* isHandover */, false /* fromExternal */);
-                                //Done getting file info..Launch device picker
-                                //and finish this activity
-                                launchDevicePicker();
-                                finish();
+                                sendFileInfo(type, fileUri.toString(), false);
                             }
                         });
                         t.start();
@@ -162,13 +152,17 @@ public class BluetoothOppLauncherActivity extends Activity {
                                 + mimeType);
                     Thread t = new Thread(new Runnable() {
                         public void run() {
-                            BluetoothOppManager.getInstance(BluetoothOppLauncherActivity.this)
-                                .saveSendingFileInfo(mimeType,uris,
-                                    false /* isHandover */, true /* fromExternal */);
-                            //Done getting file info..Launch device picker
-                            //and finish this activity
-                            launchDevicePicker();
-                            finish();
+                            try {
+                                BluetoothOppManager.getInstance(BluetoothOppLauncherActivity.this)
+                                    .saveSendingFileInfo(mimeType,uris, false);
+                                //Done getting file info..Launch device picker
+                                //and finish this activity
+                                launchDevicePicker();
+                                finish();
+                            } catch (IllegalArgumentException exception) {
+                                showToast(exception.getMessage());
+                                finish();
+                            }
                         }
                     });
                     t.start();
@@ -413,6 +407,26 @@ public class BluetoothOppLauncherActivity extends Activity {
         }
     }
 
+    private void sendFileInfo(String mimeType, String uriString, boolean isHandover) {
+        BluetoothOppManager manager = BluetoothOppManager.getInstance(getApplicationContext());
+        try {
+            manager.saveSendingFileInfo(mimeType, uriString, isHandover);
+            launchDevicePicker();
+            finish();
+        } catch (IllegalArgumentException exception) {
+            showToast(exception.getMessage());
+            finish();
+        }
+    }
+
+    private void showToast(final String msg) {
+        BluetoothOppLauncherActivity.this.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
 
 }
 

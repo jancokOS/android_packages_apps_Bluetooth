@@ -112,6 +112,8 @@ public class BluetoothOppManager {
 
     private int mInsertShareThreadNum = 0;
 
+    public boolean isA2DPPlaying;
+
     // A list of devices that may send files over OPP to this device
     // without user confirmation. Used for connection handover from forex NFC.
     private List<Pair<String,Long> > mWhitelist = new ArrayList<Pair<String, Long> >();
@@ -248,8 +250,8 @@ public class BluetoothOppManager {
         if (V) Log.v(TAG, "Application data stored to SharedPreference! ");
     }
 
-    public void saveSendingFileInfo(String mimeType, String uriString, boolean isHandover,
-            boolean fromExternal) {
+    public void saveSendingFileInfo(String mimeType, String uriString, boolean isHandover)
+            throws IllegalArgumentException {
         synchronized (BluetoothOppManager.this) {
             mMultipleFlag = false;
             mMimeTypeOfSendingFile = mimeType;
@@ -264,8 +266,8 @@ public class BluetoothOppManager {
         }
     }
 
-    public void saveSendingFileInfo(String mimeType, ArrayList<Uri> uris, boolean isHandover,
-            boolean fromExternal) {
+    public void saveSendingFileInfo(String mimeType, ArrayList<Uri> uris, boolean isHandover)
+            throws IllegalArgumentException {
         synchronized (BluetoothOppManager.this) {
             mMultipleFlag = true;
             mMimeTypeOfSendingFiles = mimeType;
