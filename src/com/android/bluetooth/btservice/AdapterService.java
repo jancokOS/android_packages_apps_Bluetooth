@@ -2768,10 +2768,6 @@ public class AdapterService extends Service {
         }
     }
 
-    public void captureVndLogs() {
-        mVendor.captureVndLogs();
-    }
-
     @Override
     protected void dump(FileDescriptor fd, PrintWriter writer, String[] args) {
         enforceCallingOrSelfPermission(android.Manifest.permission.DUMP, TAG);
