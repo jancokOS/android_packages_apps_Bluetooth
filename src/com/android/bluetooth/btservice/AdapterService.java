@@ -2772,11 +2772,6 @@ public class AdapterService extends Service {
         mVendor.captureVndLogs();
     }
 
-    public void setSnooplogState(boolean status) {
-        Settings.Secure.putInt(getContentResolver(),
-                Settings.Secure.BLUETOOTH_HCI_LOG, status ? 1 : 0);
-    }
-
     @Override
     protected void dump(FileDescriptor fd, PrintWriter writer, String[] args) {
         enforceCallingOrSelfPermission(android.Manifest.permission.DUMP, TAG);
